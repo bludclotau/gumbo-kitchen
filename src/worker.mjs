@@ -6,8 +6,9 @@ import Ajv from "ajv";
 import { config } from "./config.mjs";
 import { pool, query } from "./db.mjs";
 import { renderWav } from "./engine.mjs";
-import { completeStructured, parseModelJson } from "./llm.mjs";
+import { completeStructured, markCallError, parseModelJson } from "./llm.mjs";
 import { runKitchen } from "./kitchen.mjs";
+import { withValidationRetries } from "./retry.mjs";
 import { coerceToSchema, finalizePatch, sampleName, semanticErrors, SYSTEM_PROMPT, tagsForPrompt } from "./patch.mjs";
 import { inspectWav } from "./wav.mjs";
 
@@ -71,25 +72,19 @@ async function askForPatch(job, schema, seed, prompt) {
     { role: "system", content: SYSTEM_PROMPT },
     { role: "user", content: prompt },
   ];
-  let raw = "";
-  let lastError = "no attempt";
   const adjustments = [];
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const messages = attempt === 1
-      ? base
-      : [
-          ...base,
-          { role: "assistant", content: raw || "{}" },
-          { role: "user", content: `That object failed a check: ${lastError}. Return a corrected object.` },
-        ];
-    try {
-      raw = await completeStructured({ messages, schema, seed, jobId: job.id });
-    } catch (err) {
-      lastError = err.message;
-      if (attempt === 2 || /HTTP 400/.test(lastError)) throw err;
-      continue;
-    }
-    try {
+  return withValidationRetries({
+    call({ attempt, lastError, previous }) {
+      const messages = attempt === 1
+        ? base
+        : [
+            ...base,
+            { role: "assistant", content: previous || "{}" },
+            { role: "user", content: `That object failed a check: ${lastError}. Return a corrected object.` },
+          ];
+      return completeStructured({ messages, schema, seed, jobId: job.id, attempt });
+    },
+    check(raw) {
       const parsed = parseModelJson(raw);
       adjustments.length = 0;
       const modelObj = coerceToSchema(parsed, schema, "patch", adjustments);
@@ -97,11 +92,9 @@ async function askForPatch(job, schema, seed, prompt) {
       const semantic = semanticErrors(prompt, modelObj);
       if (semantic.length) throw new Error(semantic.join("; "));
       return { modelObj, adjustments: [...adjustments] };
-    } catch (err) {
-      lastError = err.message;
-    }
-  }
-  throw new Error(lastError);
+    },
+    noteError: markCallError,
+  });
 }
 
 async function catalogue(job, prompt, patch, adjustments, seed) {

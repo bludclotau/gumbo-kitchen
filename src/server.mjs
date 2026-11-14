@@ -343,7 +343,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const calls = await query(
-        `SELECT id, model, node, latency_ms, created_at
+        `SELECT id, model, node, latency_ms, attempt, error, created_at
          FROM vibe.llm_calls WHERE job_id = $1 ORDER BY id`,
         [jobMatch[1]],
       );
@@ -354,6 +354,8 @@ const server = http.createServer(async (req, res) => {
           model: row.model,
           node: row.node,
           latency_ms: row.latency_ms,
+          attempt: row.attempt == null ? null : Number(row.attempt),
+          error: row.error,
           created_at: row.created_at,
         })),
       });

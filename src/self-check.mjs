@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
 import { config } from "./config.mjs";
 import { coerceToSchema, finalizePatch, parseDuration, semanticErrors, tagsForPrompt } from "./patch.mjs";
+import { isFatalTransport, withValidationRetries } from "./retry.mjs";
 import { inspectWav } from "./wav.mjs";
 
 function assert(cond, message) {
@@ -92,4 +93,47 @@ assert(meta.status === "ok" && meta.frames === 24000, "engine reports 24000 fram
 assert(Math.abs(info.duration_s - 0.5) < 0.0001, "wav is 0.50s");
 assert(info.channels === 1 && info.sampleRate === 48000 && info.bits === 16, "mono 48 kHz 16-bit");
 await fs.rm(dir, { recursive: true, force: true });
+
+assert(isFatalTransport("qwen timeout") === true, "timeout is fatal");
+assert(isFatalTransport("qwen HTTP 400: schema") === false, "schema HTTP 400 is retried");
+const noted = [];
+let calls = 0;
+const accepted = await withValidationRetries({
+  call({ attempt, lastError }) {
+    calls += 1;
+    if (attempt === 1) return { id: 11, text: "bad" };
+    assert(lastError === "not json", "retry prompt receives the validator error");
+    return { id: 12, text: "{\"ok\":true}" };
+  },
+  check(raw) {
+    if (raw === "bad") throw new Error("not json");
+    return JSON.parse(raw);
+  },
+  noteError(id, error) {
+    noted.push({ id, error });
+  },
+});
+assert(accepted.ok === true && calls === 2 && noted.length === 1 && noted[0].id === 11, "second try accepts");
+let failed = false;
+try {
+  await withValidationRetries({
+    call: () => { throw new Error("qwen timeout after 600000ms"); },
+    check: () => { throw new Error("should not check"); },
+  });
+} catch (err) {
+  failed = /timeout/.test(err.message);
+}
+assert(failed, "transport failure stops the loop");
+let exhausted = "";
+try {
+  await withValidationRetries({
+    call: ({ attempt }) => ({ id: attempt, text: "nope" }),
+    check: () => { throw new Error("schema mismatch"); },
+    noteError() {},
+  });
+} catch (err) {
+  exhausted = err.message;
+}
+assert(exhausted === "schema mismatch", "third failure is the last validator error");
+
 console.log("self-check ok");

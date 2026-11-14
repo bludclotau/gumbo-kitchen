@@ -12,7 +12,8 @@ import {
   mixLayers,
   renderSampler,
 } from "../engine/dsp.mjs";
-import { completeStructured, parseModelJson } from "./llm.mjs";
+import { completeStructured, markCallError, parseModelJson } from "./llm.mjs";
+import { withValidationRetries } from "./retry.mjs";
 import { coerceToSchema } from "./patch.mjs";
 import { PLAN_SYSTEM_PROMPT, buildPattern, normalizePlan, planErrors, planSchema } from "./plan.mjs";
 import { inspectWav } from "./wav.mjs";
@@ -72,36 +73,31 @@ async function askPlan(job, schema, seed, prompt) {
     { role: "system", content: PLAN_SYSTEM_PROMPT },
     { role: "user", content: prompt },
   ];
-  let raw = "";
-  let lastError = "no attempt";
   const adjustments = [];
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const messages = attempt === 1
-      ? base
-      : [
-          ...base,
-          { role: "assistant", content: raw || "{}" },
-          {
-            role: "user",
-            content: `That object failed a check: ${lastError}. Return a corrected object with every required key.`,
-          },
-        ];
-    try {
+  return withValidationRetries({
+    call({ attempt, lastError, previous }) {
+      const messages = attempt === 1
+        ? base
+        : [
+            ...base,
+            { role: "assistant", content: previous || "{}" },
+            {
+              role: "user",
+              content: `That object failed a check: ${lastError}. Return a corrected object with every required key.`,
+            },
+          ];
       console.log(`job ${job.id} kitchen attempt ${attempt}`);
-      raw = await completeStructured({
+      return completeStructured({
         messages,
         schema,
         seed,
         jobId: job.id,
+        attempt,
         maxTokens: 900,
         schemaName: "kitchen_plan",
       });
-    } catch (err) {
-      lastError = String(err.message || err).slice(0, 800);
-      if (attempt === 3 || /HTTP 400|timeout|aborted|ECONNREFUSED/i.test(lastError)) throw err;
-      continue;
-    }
-    try {
+    },
+    check(raw) {
       const parsed = parseModelJson(raw);
       adjustments.length = 0;
       const modelObj = coerceToSchema(parsed, schema, "plan", adjustments);
@@ -111,12 +107,9 @@ async function askPlan(job, schema, seed, prompt) {
       const semantic = planErrors(prompt, normalized.plan);
       if (semantic.length) throw new Error(semantic.join("; "));
       return { plan: normalized.plan, adjustments: [...adjustments] };
-    } catch (err) {
-      lastError = String(err.message || err).slice(0, 800);
-      if (attempt === 3) throw new Error(lastError);
-    }
-  }
-  throw new Error(lastError);
+    },
+    noteError: markCallError,
+  });
 }
 
 function mapSample(row) {
