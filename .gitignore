@@ -1,5 +1,6 @@
 node_modules/
 renders/
+imports/
 .env
 *.wav
 engine/vibe-fm
