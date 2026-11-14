@@ -88,6 +88,7 @@ function sampleView(row) {
     tags: row.tags || [],
     prompt: row.prompt,
     seed: row.seed == null ? null : Number(row.seed),
+    engine_version: row.engine_version || null,
     parent_id: row.parent_id == null ? null : Number(row.parent_id),
     composition_id: row.composition_id == null ? null : Number(row.composition_id),
     created_at: row.created_at,
@@ -113,7 +114,7 @@ async function listSamples(search) {
   }
   params.push(300);
   const sql = `SELECT id, name, source, duration_s, sample_rate, channels, key, bpm,
-                      tags, prompt, seed, parent_id, composition_id, created_at
+                      tags, prompt, seed, engine_version, parent_id, composition_id, created_at
                FROM vibe.samples
                ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
                ORDER BY created_at DESC, id DESC

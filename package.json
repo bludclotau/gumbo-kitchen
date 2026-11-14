@@ -10,7 +10,8 @@
     "import-samples": "node src/import-wavbvkery.mjs",
     "start": "node src/server.mjs",
     "self-check": "node src/self-check.mjs",
-    "dsp-check": "node src/dsp-self-check.mjs"
+    "dsp-check": "node src/dsp-self-check.mjs",
+    "reproduce-check": "node src/reproduce-check.mjs"
   },
   "dependencies": {
     "ajv": "^8.17.1",

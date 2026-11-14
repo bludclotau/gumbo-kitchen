@@ -16,6 +16,7 @@ import { completeStructured, markCallError, parseModelJson } from "./llm.mjs";
 import { withValidationRetries } from "./retry.mjs";
 import { coerceToSchema } from "./patch.mjs";
 import { PLAN_SYSTEM_PROMPT, buildPattern, normalizePlan, planErrors, planSchema } from "./plan.mjs";
+import { DSP_ENGINE } from "./versions.mjs";
 import { inspectWav } from "./wav.mjs";
 
 const ajv = new Ajv({ allErrors: true, strict: true });
@@ -170,6 +171,7 @@ function productPatch(command, sourceId, index, seed) {
     source_sample_id: sourceId,
     source_ref: command.source_ref,
     seed,
+    engine: DSP_ENGINE,
   };
   if (command.op === "slice") {
     patch.slice_mode = command.slice_mode;
@@ -514,8 +516,8 @@ export async function runKitchen(job) {
     for (const item of writtenProducts) {
       const row = await client.query(
         `INSERT INTO vibe.samples
-           (name, source, path, sha256, duration_s, sample_rate, channels, key, bpm, tags, prompt, patch, seed, parent_id)
-         VALUES ($1, 'sampler', $2, $3, $4, $5, $6, $7, $8, $9::text[], $10, $11::jsonb, $12, $13)
+           (name, source, path, sha256, duration_s, sample_rate, channels, key, bpm, tags, prompt, patch, seed, parent_id, engine_version)
+         VALUES ($1, 'sampler', $2, $3, $4, $5, $6, $7, $8, $9::text[], $10, $11::jsonb, $12, $13, $14)
          RETURNING id`,
         [
           item.name,
@@ -531,6 +533,7 @@ export async function runKitchen(job) {
           JSON.stringify(item.patch),
           seed,
           item.parentId,
+          DSP_ENGINE,
         ],
       );
       const id = Number(row.rows[0].id);
@@ -619,6 +622,7 @@ export async function runKitchen(job) {
         key: mix.key,
         seed,
         parent_sample_id: mixParent,
+        engine: DSP_ENGINE,
         layers: layers.map((layer) => ({
           id: layer.id,
           position: layer.position,
@@ -626,6 +630,7 @@ export async function runKitchen(job) {
           gain: layer.gain,
           pan: layer.pan,
           loop: layer.loop,
+          fx_chain: layer.fx_chain || [],
           pattern: layer.pattern || [],
         })),
       };
@@ -638,8 +643,8 @@ export async function runKitchen(job) {
       });
       const mixRow = await client.query(
         `INSERT INTO vibe.samples
-           (name, source, path, sha256, duration_s, sample_rate, channels, key, bpm, tags, prompt, patch, seed, parent_id, composition_id)
-         VALUES ($1, 'sequencer', $2, $3, $4, $5, $6, $7, $8, $9::text[], $10, $11::jsonb, $12, $13, $14)
+           (name, source, path, sha256, duration_s, sample_rate, channels, key, bpm, tags, prompt, patch, seed, parent_id, composition_id, engine_version)
+         VALUES ($1, 'sequencer', $2, $3, $4, $5, $6, $7, $8, $9::text[], $10, $11::jsonb, $12, $13, $14, $15)
          RETURNING id`,
         [
           artefactName(parentName, "mix", 0, job.id),
@@ -656,6 +661,7 @@ export async function runKitchen(job) {
           seed,
           mixParent,
           compositionId,
+          DSP_ENGINE,
         ],
       );
       mixId = Number(mixRow.rows[0].id);

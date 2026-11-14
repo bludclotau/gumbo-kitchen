@@ -30,6 +30,7 @@ const finalized = finalizePatch({
 }, { seed: 9, prompt });
 assert(finalized.patch.duration_s === 0.5, "prompt duration wins");
 assert(finalized.patch.seed === 9 && finalized.patch.sample_rate === 48000, "seed and rate injected");
+assert(finalized.patch.engine === "vibe-fm 1", "fm engine version is stored on the patch");
 assert(finalized.patch.modulator.release <= 0.5 * 0.45 + 0.001, "release fits the buffer");
 assert(tagsForPrompt(prompt).includes("trumpet") && tagsForPrompt(prompt).includes("brass"), "tags");
 const velocityNotes = [];
@@ -74,10 +75,12 @@ const patch = {
     ratio: 1, detune_cents: 4, attack: 0.015, decay: 0.1, sustain: 0.6, release: 0.15, level: 0.9,
   },
   lfo: { rate_hz: 0, depth: 0, target: "off" },
+  engine: "vibe-fm 1",
 };
 const modelPatch = { ...patch };
 delete modelPatch.seed;
 delete modelPatch.sample_rate;
+delete modelPatch.engine;
 if (!validate(modelPatch)) {
   throw new Error(`fixture rejected by schema: ${JSON.stringify(validate.errors)}`);
 }

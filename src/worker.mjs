@@ -11,6 +11,7 @@ import { runKitchen } from "./kitchen.mjs";
 import { withValidationRetries } from "./retry.mjs";
 import { EXPAND_PROMPT, routePrompt } from "./router.mjs";
 import { coerceToSchema, finalizePatch, sampleName, semanticErrors, SYSTEM_PROMPT, tagsForPrompt } from "./patch.mjs";
+import { FM_ENGINE } from "./versions.mjs";
 import { inspectWav } from "./wav.mjs";
 
 const ajv = new Ajv({ allErrors: true, strict: true });
@@ -127,8 +128,8 @@ async function catalogue(job, prompt, patch, adjustments, seed) {
     );
     const sampleRow = await client.query(
       `INSERT INTO vibe.samples
-         (name, source, path, sha256, duration_s, sample_rate, channels, tags, prompt, patch, seed)
-       VALUES ($1, 'synth', $2, $3, $4, $5, $6, $7::text[], $8, $9::jsonb, $10)
+         (name, source, path, sha256, duration_s, sample_rate, channels, tags, prompt, patch, seed, engine_version)
+       VALUES ($1, 'synth', $2, $3, $4, $5, $6, $7::text[], $8, $9::jsonb, $10, $11)
        RETURNING id`,
       [
         name,
@@ -141,6 +142,7 @@ async function catalogue(job, prompt, patch, adjustments, seed) {
         prompt,
         JSON.stringify(patch),
         seed,
+        FM_ENGINE,
       ],
     );
     await client.query(

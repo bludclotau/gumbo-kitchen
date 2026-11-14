@@ -1,3 +1,5 @@
+import { FM_ENGINE } from "./versions.mjs";
+
 const HINTS = ["trumpet", "brass", "horn", "chord", "bold", "soft", "bass", "bell", "pad", "lead", "pluck"];
 
 export function coerceToSchema(value, schema, path, adjustments) {
@@ -84,6 +86,7 @@ export function finalizePatch(modelPatch, { seed, prompt }) {
   }
   patch.sample_rate = 48000;
   patch.seed = seed;
+  patch.engine = FM_ENGINE;
   return { patch, adjustments };
 }
 
