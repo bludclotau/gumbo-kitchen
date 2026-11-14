@@ -19,13 +19,13 @@ export const config = {
     password: process.env.VIBE_DB_PASSWORD || process.env.WF_DB_PASSWORD || "",
   },
   qwen: {
-    base: (process.env.VIBE_QWEN_URL || "http://10.1.1.122:8081/v1").replace(/\/$/, ""),
-    model: process.env.VIBE_QWEN_MODEL || "C:\\llama\\qwen\\qwen.gguf",
+    base: String(process.env.VIBE_QWEN_URL || "").replace(/\/$/, ""),
+    model: process.env.VIBE_QWEN_MODEL || "",
     timeoutMs: num(process.env.VIBE_LLM_TIMEOUT_MS, 600000),
   },
   dolphin: {
-    base: (process.env.VIBE_DOLPHIN_URL || "http://10.1.1.122:8082/v1").replace(/\/$/, ""),
-    model: process.env.VIBE_DOLPHIN_MODEL || "C:\\llama\\dolphin\\dolphin.gguf",
+    base: String(process.env.VIBE_DOLPHIN_URL || "").replace(/\/$/, ""),
+    model: process.env.VIBE_DOLPHIN_MODEL || "",
   },
   host: process.env.VIBE_HOST || "0.0.0.0",
   port: num(process.env.VIBE_PORT, 3920),

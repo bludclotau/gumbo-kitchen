@@ -6,9 +6,10 @@ import Ajv from "ajv";
 import { config } from "./config.mjs";
 import { pool, query } from "./db.mjs";
 import { renderWav } from "./engine.mjs";
-import { completeStructured, markCallError, parseModelJson } from "./llm.mjs";
+import { completeStructured, completeText, markCallError, parseModelJson } from "./llm.mjs";
 import { runKitchen } from "./kitchen.mjs";
 import { withValidationRetries } from "./retry.mjs";
+import { EXPAND_PROMPT, routePrompt } from "./router.mjs";
 import { coerceToSchema, finalizePatch, sampleName, semanticErrors, SYSTEM_PROMPT, tagsForPrompt } from "./patch.mjs";
 import { inspectWav } from "./wav.mjs";
 
@@ -114,7 +115,7 @@ async function catalogue(job, prompt, patch, adjustments, seed) {
   }
   const sha256 = createHash("sha256").update(buf).digest("hex");
   const name = sampleName(prompt, job.id);
-  const tags = tagsForPrompt(prompt);
+  const tags = tagsForPrompt(`${prompt} ${job.command?.instruction || ""}`);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -159,7 +160,13 @@ async function catalogue(job, prompt, patch, adjustments, seed) {
         patchRow.rows[0].id,
         config.qwen.base,
         config.qwen.model,
-        JSON.stringify({ seed, adjustments, frames: meta.frames, peak: meta.peak }),
+        JSON.stringify({
+          seed,
+          adjustments,
+          frames: meta.frames,
+          peak: meta.peak,
+          ...(job.command?.instruction ? { instruction: job.command.instruction } : {}),
+        }),
       ],
     );
     await client.query("COMMIT");
@@ -172,16 +179,93 @@ async function catalogue(job, prompt, patch, adjustments, seed) {
   }
 }
 
+function firstLine(text) {
+  const line = String(text || "").split("\n").map((part) => part.trim()).find(Boolean) || "";
+  return line.replace(/^["']|["']$/g, "").slice(0, 500);
+}
+
+async function expandPrompt(job, prompt, seed) {
+  const result = await completeText({
+    endpoint: config.dolphin,
+    messages: [
+      { role: "system", content: EXPAND_PROMPT },
+      { role: "user", content: prompt },
+    ],
+    seed,
+    jobId: job.id,
+    maxTokens: 160,
+  });
+  const instruction = firstLine(result.text);
+  if (instruction.length < 8) throw new Error("dolphin returned an empty instruction");
+  return instruction;
+}
+
+async function finishText(job, prompt, purpose, seed) {
+  const asked = purpose === "lyric"
+    ? "Write the lyric the user asked for. Reply with the lyric only."
+    : "Reply with a short name or a comma-separated tag list, and nothing else.";
+  const result = await completeText({
+    endpoint: config.dolphin,
+    messages: [
+      { role: "system", content: asked },
+      { role: "user", content: prompt },
+    ],
+    seed,
+    jobId: job.id,
+    maxTokens: 180,
+  });
+  const text = String(result.text || "").trim();
+  if (!text) throw new Error("dolphin returned empty text");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `INSERT INTO vibe.lyrics (text, treatment, job_id) VALUES ($1, $2, $3)`,
+      [text.slice(0, 4000), purpose, job.id],
+    );
+    await client.query(
+      `UPDATE vibe.jobs
+       SET status = 'done',
+           finished_at = now(),
+           node = $2,
+           model = $3,
+           error = NULL,
+           command = command || $4::jsonb
+       WHERE id = $1`,
+      [
+        job.id,
+        config.dolphin.base,
+        config.dolphin.model,
+        JSON.stringify({ purpose, text: text.slice(0, 4000) }),
+      ],
+    );
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+  return { sampleId: null, info: { duration_s: 0, frames: 0 }, meta: { peak: 0, frames: 0 }, text };
+}
+
 export async function runJob(job) {
   const prompt = String(job.command?.prompt || "").trim();
   if (!prompt) throw new Error("job has no prompt");
+  const seedHint = randomInt(1, 2147483647);
+  const decision = routePrompt(prompt);
+  if (decision.kind === "text") return finishText(job, prompt, decision.purpose, seedHint);
+  if (decision.kind === "expand") {
+    job.command = { ...job.command, instruction: await expandPrompt(job, prompt, seedHint) };
+  }
   if (job.module === "sampler" || job.module === "sequencer") return runKitchen(job);
   if (job.module !== "fm-synth") throw new Error(`no renderer for module ${job.module}`);
   const moduleRow = await loadModule(job.module);
   if (!moduleRow) throw new Error(`module ${job.module} is not registered`);
   const seed = randomInt(1, 2147483647);
-  const asked = await askForPatch(job, moduleRow.param_schema, seed, prompt);
-  const { patch, adjustments } = finalizePatch(asked.modelObj, { seed, prompt });
+  const instruction = String(job.command?.instruction || prompt);
+  const asked = await askForPatch(job, moduleRow.param_schema, seed, instruction);
+  const { patch, adjustments } = finalizePatch(asked.modelObj, { seed, prompt: instruction });
   return catalogue(job, prompt, patch, [...asked.adjustments, ...adjustments], seed);
 }
 

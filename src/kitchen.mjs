@@ -287,12 +287,13 @@ async function hydrateLayer(row) {
 
 export async function runKitchen(job) {
   const prompt = String(job.command?.prompt || "").trim();
+  const instruction = String(job.command?.instruction || prompt).trim();
   if (!prompt) throw new Error("job has no prompt");
   const samplerMod = await loadModule("sampler");
   const sequencerMod = await loadModule("sequencer");
   const schema = planSchema(samplerMod.param_schema, sequencerMod.param_schema);
   const seed = randomInt(1, 2147483647);
-  const asked = await askPlan(job, schema, seed, prompt);
+  const asked = await askPlan(job, schema, seed, instruction);
   const plan = asked.plan;
   const adjustments = [...asked.adjustments];
 
@@ -348,11 +349,11 @@ export async function runKitchen(job) {
   let bpm = comp ? comp.bpm : Number(plan.sequencer.bpm);
   let mixKey = comp?.key || null;
   if (plan.use_sequencer) {
-    const askedBpm = statedBpm(prompt);
+    const askedBpm = statedBpm(instruction);
     if (askedBpm != null) bpm = Number(plan.sequencer.bpm);
     else if (!layers.length) bpm = Number(plan.sequencer.bpm);
     else adjustments.push(`bpm left at ${bpm} because the prompt did not state a tempo`);
-    const askedKey = statedKey(prompt);
+    const askedKey = statedKey(instruction);
     if (askedKey) mixKey = askedKey;
   }
 
@@ -707,6 +708,7 @@ export async function runKitchen(job) {
           sample_ids: sampleIds,
           peak,
           frames: resultInfo.frames,
+          ...(instruction !== prompt ? { instruction } : {}),
         }),
       ],
     );

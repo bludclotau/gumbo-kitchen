@@ -110,3 +110,58 @@ export async function completeStructured({
   }
   return { id: callId, text: responseText };
 }
+
+export async function completeText({ endpoint, messages, seed, jobId, attempt = 1, maxTokens = 200, label = "dolphin" }) {
+  if (!endpoint?.base || !endpoint?.model) {
+    throw new Error(`Set ${label} URL and model`);
+  }
+  const body = {
+    model: endpoint.model,
+    temperature: 0.4,
+    seed,
+    max_tokens: maxTokens,
+    messages,
+  };
+  const started = Date.now();
+  let responseText = "";
+  let thrown = null;
+  try {
+    const res = await fetch(`${endpoint.base}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(config.qwen.timeoutMs),
+    });
+    const raw = await res.text();
+    if (!res.ok) {
+      responseText = raw.slice(0, 8000);
+      throw new Error(`${label} HTTP ${res.status}: ${raw.slice(0, 400)}`);
+    }
+    const parsed = JSON.parse(raw);
+    responseText = String(parsed?.choices?.[0]?.message?.content ?? "");
+    if (!responseText) throw new Error(`${label} returned an empty message`);
+  } catch (err) {
+    if (!responseText) responseText = String(err.message || err);
+    thrown = err;
+  }
+  let callId = null;
+  try {
+    callId = await insertCall({
+      model: endpoint.model,
+      node: endpoint.base,
+      messages,
+      responseText,
+      latencyMs: Date.now() - started,
+      jobId,
+      attempt,
+      error: thrown ? String(thrown.message || thrown) : null,
+    });
+  } catch (logErr) {
+    console.error("failed to log llm call", logErr.message);
+  }
+  if (thrown) {
+    thrown.callId = callId;
+    throw thrown;
+  }
+  return { id: callId, text: responseText };
+}

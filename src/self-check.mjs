@@ -7,6 +7,7 @@ import Ajv from "ajv";
 import { config } from "./config.mjs";
 import { coerceToSchema, finalizePatch, parseDuration, semanticErrors, tagsForPrompt } from "./patch.mjs";
 import { isFatalTransport, withValidationRetries } from "./retry.mjs";
+import { routePrompt } from "./router.mjs";
 import { inspectWav } from "./wav.mjs";
 
 function assert(cond, message) {
@@ -135,5 +136,13 @@ try {
   exhausted = err.message;
 }
 assert(exhausted === "schema mismatch", "third failure is the last validator error");
+assert(routePrompt("make a bold brassy trumpet chord for 0.50 seconds").kind === "qwen", "trumpet stays on qwen");
+assert(routePrompt("slice it into 8 and play slices 1 3 5 7 on the off-beats at 90 bpm").kind === "qwen", "slice stays on qwen");
+assert(routePrompt("granulate the last sample into a slow shimmering pad, 4 seconds").kind === "qwen", "grain stays on qwen");
+assert(routePrompt("add that as a new layer, quieter, panned left, and mix it down").kind === "qwen", "mix stays on qwen");
+assert(routePrompt("make something like rain on a window").kind === "expand", "descriptive prompt expands");
+assert(routePrompt("write a short lyric about brass").purpose === "lyric", "lyrics go to dolphin text");
+assert(routePrompt("give this sample a name").purpose === "name", "names go to dolphin text");
+assert(routePrompt("suggest tags for this track").purpose === "tags", "tags go to dolphin text");
 
 console.log("self-check ok");

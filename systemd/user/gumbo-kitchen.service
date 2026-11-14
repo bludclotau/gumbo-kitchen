@@ -10,6 +10,7 @@ ExecStart=/usr/bin/node src/server.mjs
 Restart=always
 RestartSec=3
 EnvironmentFile=/home/snerloc/vibe-hub/cyberrave-wordfactory/.env
+EnvironmentFile=/home/snerloc/vibe-hub/gumbo-kitchen/.env
 
 [Install]
 WantedBy=default.target
