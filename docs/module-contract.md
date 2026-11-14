@@ -36,7 +36,7 @@ The orchestrator inserts `vibe.jobs.command`:
 { "prompt": "make a bold brassy trumpet chord for 0.50 seconds", "module": "fm-synth" }
 ```
 
-The worker claims the oldest `pending` row (`FOR UPDATE SKIP LOCKED`), marks it `running`, and calls qwen at `VIBE_QWEN_URL` (default `http://10.1.1.122:8081/v1`). Dolphin (`VIBE_DOLPHIN_URL`, port 8082) is for later creative text. Phase 1 does not call it. Structured patches go to qwen because that server accepts `response_format.type = json_schema`.
+The worker claims the oldest `pending` row (`FOR UPDATE SKIP LOCKED`), marks it `running`, and routes the prompt. Structured patches go to qwen at `VIBE_QWEN_URL` because that server accepts `response_format.type = json_schema`. Dolphin, at `VIBE_DOLPHIN_URL`, writes names, tags, and lyric text, and it expands a descriptive prompt into one concrete instruction before qwen runs. Neither URL has a default in the code. The model id is `VIBE_QWEN_MODEL` or `VIBE_DOLPHIN_MODEL`.
 
 The request uses llama.cpp constrained decoding:
 
@@ -49,7 +49,7 @@ The request uses llama.cpp constrained decoding:
 }
 ```
 
-Every call, including a failed HTTP call, is inserted into `vibe.llm_calls` with the model id, the node URL, the messages, the response text, `latency_ms`, and `job_id`.
+Every call, including a failed HTTP call, is inserted into `vibe.llm_calls` with the model id, the node URL, the messages, the response text, `latency_ms`, `job_id`, `attempt`, and `error`. `attempt` starts at 1. `error` is null when that reply was accepted.
 
 The returned object is checked three times:
 
@@ -57,13 +57,14 @@ The returned object is checked three times:
 2. Ajv against `param_schema` on the repaired object.
 3. A short musical check when the prompt asks for it. A chord must be three notes. Trumpet, brass, or horn must set `modulator.index` to at least 2.5 and `index_env_amount` to at least 0.85.
 
-One correction turn is allowed when the repaired object still fails. The job then fails with the validator text. `llm_calls.response` keeps the model's JSON either way.
+When the repaired object still fails, the validator text is sent back to the model. That loop runs at most three times. The job then fails with the last error. `llm_calls.response` keeps each reply. A timeout or a refused connection stops the loop immediately. An HTTP 400 from the schema grammar is retried, because that is the node rejecting the reply.
 
 ## What the engine adds
 
 The model does not choose the seed or the sample rate. After validation the orchestrator writes the render document:
 
 - `seed` — random 31-bit integer, stored on the sample and inside the patch.
+- `engine` — `vibe-fm 1` for FM. The same text is stored on `samples.engine_version`. The C engine ignores the extra key.
 - `sample_rate` — always `48000`.
 - `duration_s` — if the prompt states a length (`0.50 seconds`), that length replaces the model's value. Outside `0.05..8` the job fails.
 - operator `release` — shortened only when it is longer than 45% of `duration_s`, so the release ends inside the buffer.
@@ -155,7 +156,9 @@ The orchestrator resolves `latest`, `root`, and `previous`. `jobs.command.source
 
 Off-beats are the even steps of an 8th-note grid (`steps_per_bar` 8). A pattern is a JSON array of step objects on `layers.pattern`. Euclidean rhythms are three numbers on the sequencer command and are resolved before the mix, including probability. The mixer only sees steps marked `played`.
 
-Stated counts, slice lists, tempos, and durations are copied from the prompt when the wording is explicit. The raw model JSON stays on `vibe.llm_calls`. A failed check is sent back to qwen, at most three calls.
+Stated counts, slice lists, tempos, and durations are copied from the instruction the model was given. The raw model JSON stays on `vibe.llm_calls`. A failed check is sent back to qwen, at most three calls. `db/migrations/003_llm_call_attempts.sql` adds `attempt` and `error`. `004_engine_version.sql` adds `samples.engine_version`. Sampler and mix rows store `dsp 1`. Older rows keep a null version and are not rewritten.
+
+`npm run reproduce-check` re-renders a random set of rows from the stored patch and seed and compares WAV hashes. A slice mix that was summed from float buffers is replayed from those patches. A later mix that was summed from catalogue WAVs is replayed from those files.
 
 `db/migrations/002_phase2.sql` adds `samples.composition_id`, `layers.stem_path`, and the `sequencer` source value. That source check is the one phase-1 constraint this migration replaces. `002_phase2.down.sql` removes the phase-2 rows and columns. The migrator's `--down` flag still drops the whole `vibe` schema and does not run that file by itself.
 
@@ -165,9 +168,9 @@ They fit the same contract. None of them need a new table.
 
 - **Sampler and sequencer.** Built. See Phase 2.
 - **FX module.** `kind = fx` is still unused. The mixer already runs a short `fx_chain`. A later module can fill that chain from the model.
-- **Lyrics.** `kind = lyrics`. Wordfactory already stores words, treatments, and Bark jobs in schema `wordfactory` on this same database. A Kitchen lyrics job would call Dolphin for a line, insert `vibe.lyrics`, and leave a `pending` job for the Geekom worker. That worker runs the existing Bark pipeline and rsyncs a WAV back. The orchestrator then inserts `samples` with `source = bark` and fills `lyrics.sample_id`. Heavy Bark work stays on the Geekom. snerloc only queues and catalogues.
+- **Lyrics audio.** `kind = lyrics` is still unused. A prompt that asks for a lyric, a name, or tags is answered by dolphin and stored on `vibe.lyrics` with the job id. It does not render a WAV. Bark on the Geekom is still the path for a sung take.
 
-A composition is a title, a bpm, and a key. A layer is a position, a sample, a pattern, an FX chain, gain, pan, and loop. Phase 2 fills those rows. Lyrics stays empty.
+A composition is a title, a bpm, and a key. A layer is a position, a sample, a pattern, an FX chain, gain, pan, and loop. Phase 2 fills those rows. Lyric text is filled when a prompt asks for it. Sung audio is still later.
 
 ## Run
 
@@ -180,7 +183,10 @@ node src/migrate.mjs
 node src/import-wavbvkery.mjs
 node src/self-check.mjs
 node src/dsp-self-check.mjs
+node src/reproduce-check.mjs --n 4
 node src/server.mjs
 ```
+
+`VIBE_QWEN_URL`, `VIBE_QWEN_MODEL`, `VIBE_DOLPHIN_URL`, and `VIBE_DOLPHIN_MODEL` come from the environment. This repo's gitignored `.env` is the place for them. The user service loads that file.
 
 The page is `http://10.1.1.106:3920/`. The down migration drops schema `vibe` only. It runs only with `node src/migrate.mjs --down` and `VIBE_ALLOW_DOWN=yes`.
