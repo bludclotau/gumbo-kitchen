@@ -1,0 +1,15 @@
+[Unit]
+Description=Gumbo's Kitchen
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/snerloc/vibe-hub/gumbo-kitchen
+ExecStart=/usr/bin/node src/server.mjs
+Restart=always
+RestartSec=3
+EnvironmentFile=/home/snerloc/vibe-hub/cyberrave-wordfactory/.env
+
+[Install]
+WantedBy=default.target

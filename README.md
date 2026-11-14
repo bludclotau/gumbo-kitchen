@@ -20,3 +20,12 @@ node src/server.mjs
 ```
 
 Open `http://10.1.1.106:3920/`.
+
+The boot service is `systemd/user/gumbo-kitchen.service`. This account has linger enabled, so the user manager starts it at boot. It reads the wordfactory env file and listens on port 3920.
+
+```bash
+ln -sfn /home/snerloc/vibe-hub/gumbo-kitchen/systemd/user/gumbo-kitchen.service \
+  ~/.config/systemd/user/gumbo-kitchen.service
+systemctl --user daemon-reload
+systemctl --user enable --now gumbo-kitchen.service
+```
