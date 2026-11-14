@@ -1,0 +1,120 @@
+:root {
+  color-scheme: dark;
+  --bg: #16130f;
+  --panel: #221c16;
+  --ink: #f3eadb;
+  --muted: #b3a38e;
+  --line: #3a3127;
+  --brass: #e0a45a;
+  --bad: #e07a68;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0 auto;
+  max-width: 52rem;
+  padding: 2rem 1.25rem 6rem;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+header h1, h2 { font-weight: 600; letter-spacing: 0; }
+
+.mark {
+  margin: 0;
+  color: var(--brass);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+h1 { margin: 0.2rem 0 0.4rem; font-size: 2rem; }
+
+header p:last-child, #form-note, .meta { color: var(--muted); }
+
+form, section {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+label { display: block; margin-bottom: 0.4rem; }
+
+textarea, input, button {
+  font: inherit;
+  color: var(--ink);
+  background: #100e0b;
+  border: 1px solid var(--line);
+  border-radius: 0;
+}
+
+textarea, input[type="search"] {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+}
+
+.row, .section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.7rem;
+}
+
+.section-head { margin-top: 0; }
+.section-head h2 { margin: 0; }
+
+.filter { margin: 0; font-size: 0.9rem; color: var(--muted); }
+.filter input { margin-top: 0.3rem; width: 14rem; }
+
+button {
+  padding: 0.45rem 0.9rem;
+  background: var(--brass);
+  color: #1a1208;
+  border-color: var(--brass);
+  cursor: pointer;
+}
+
+button:disabled { opacity: 0.6; cursor: wait; }
+
+#form-error, #comp-error { min-height: 1.2rem; color: var(--bad); }
+
+ol, ul { list-style: none; margin: 0.6rem 0 0; padding: 0; }
+
+li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.3rem 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.status { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--brass); }
+.status.failed { color: var(--bad); }
+.prompt { margin: 0; }
+.tags { color: var(--muted); font-size: 0.9rem; }
+
+.play {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.6rem 1rem;
+  background: #100e0b;
+  border-top: 1px solid var(--line);
+}
+
+audio { width: min(52rem, 100%); display: block; margin: 0 auto; }
+
+.empty { color: var(--muted); border-top: 0; display: block; }

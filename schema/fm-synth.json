@@ -1,0 +1,103 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["duration_s", "gain", "notes", "modulator", "carrier", "lfo"],
+  "properties": {
+    "duration_s": {
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 8,
+      "description": "Rendered length in seconds. Match a length the user states."
+    },
+    "gain": {
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 0.8,
+      "description": "Output gain before the final soft clip. About 0.35 for a three-note chord."
+    },
+    "notes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "description": "Struck together. A chord is exactly three MIDI notes. 3-voice limit.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["midi", "velocity"],
+        "properties": {
+          "midi": {
+            "type": "number",
+            "minimum": 36,
+            "maximum": 84,
+            "description": "MIDI note number. 60 is middle C."
+          },
+          "velocity": {
+            "type": "number",
+            "minimum": 0.15,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "modulator": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Operator 1. Its sine is the carrier phase deviation in radians.",
+      "required": ["ratio", "detune_cents", "index", "index_env_amount", "attack", "decay", "sustain", "release", "level"],
+      "properties": {
+        "ratio": { "type": "number", "minimum": 0.5, "maximum": 8 },
+        "detune_cents": { "type": "number", "minimum": -50, "maximum": 50 },
+        "index": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 8,
+          "description": "Peak modulation index in radians when the followed envelope is fully open."
+        },
+        "index_env_amount": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "0 = index follows the modulator ADSR. 1 = index follows the carrier amplitude envelope. Brass uses 0.85 to 1."
+        },
+        "attack": { "type": "number", "minimum": 0.001, "maximum": 2 },
+        "decay": { "type": "number", "minimum": 0.001, "maximum": 2 },
+        "sustain": { "type": "number", "minimum": 0, "maximum": 1 },
+        "release": { "type": "number", "minimum": 0.001, "maximum": 2 },
+        "level": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "carrier": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Operator 2. Its ADSR is the amplitude envelope.",
+      "required": ["ratio", "detune_cents", "attack", "decay", "sustain", "release", "level"],
+      "properties": {
+        "ratio": { "type": "number", "minimum": 0.5, "maximum": 8 },
+        "detune_cents": { "type": "number", "minimum": -50, "maximum": 50 },
+        "attack": { "type": "number", "minimum": 0.001, "maximum": 2 },
+        "decay": { "type": "number", "minimum": 0.001, "maximum": 2 },
+        "sustain": { "type": "number", "minimum": 0, "maximum": 1 },
+        "release": { "type": "number", "minimum": 0.001, "maximum": 2 },
+        "level": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "lfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rate_hz", "depth", "target"],
+      "properties": {
+        "rate_hz": { "type": "number", "minimum": 0, "maximum": 12 },
+        "depth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Pitch depth of 1 is plus or minus 100 cents. Use 0 when target is off."
+        },
+        "target": {
+          "type": "string",
+          "enum": ["off", "pitch", "index", "amp"]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "action", "render", "bpm", "key", "gain", "pan", "source_ref", "steps_per_bar", "bars",
+    "placement", "slice_indices", "velocity", "pitch_offset", "probability", "loop",
+    "euclidean_pulses", "euclidean_steps", "euclidean_rotate"
+  ],
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": ["create_pattern", "edit_pattern", "add_layer", "set_meta"],
+      "description": "add_layer keeps the layers already on the composition. create_pattern adds the first pattern."
+    },
+    "render": { "type": "boolean", "description": "True writes a mixdown of every layer." },
+    "bpm": { "type": "number", "minimum": 40, "maximum": 240 },
+    "key": { "type": "string", "description": "Empty string when the user did not name a key." },
+    "gain": { "type": "number", "minimum": 0, "maximum": 1, "description": "Layer fader. Quieter is 0.45. Leave at 1 when the user does not ask." },
+    "pan": { "type": "number", "minimum": -1, "maximum": 1, "description": "-1 is hard left, 0 is centre, 1 is hard right. Left is about -0.7." },
+    "source_ref": { "type": "string", "enum": ["latest", "root", "previous"] },
+    "steps_per_bar": { "type": "number", "minimum": 1, "maximum": 16, "description": "8 is an 8th-note grid." },
+    "bars": { "type": "number", "minimum": 1, "maximum": 8 },
+    "placement": { "type": "string", "enum": ["offbeats", "beats", "all", "custom"] },
+    "slice_indices": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "type": "number", "minimum": 1, "maximum": 64 },
+      "description": "1-based products of the sampler op in this same plan. Empty when the layer plays one whole sample."
+    },
+    "velocity": { "type": "number", "minimum": 0.15, "maximum": 1 },
+    "pitch_offset": { "type": "number", "minimum": -24, "maximum": 24 },
+    "probability": { "type": "number", "minimum": 0, "maximum": 1 },
+    "loop": { "type": "boolean" },
+    "euclidean_pulses": { "type": "number", "minimum": 0, "maximum": 16, "description": "0 disables the euclidean generator." },
+    "euclidean_steps": { "type": "number", "minimum": 1, "maximum": 16 },
+    "euclidean_rotate": { "type": "number", "minimum": 0, "maximum": 16 }
+  }
+}

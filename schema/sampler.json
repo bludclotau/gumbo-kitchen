@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "op", "source_ref", "duration_s", "start_s", "end_s", "semitones", "preserve_duration",
+    "stretch", "slice_mode", "count", "beats_per_slice", "grid_bpm", "loop_start_s",
+    "loop_end_s", "crossfade_s", "grain_size_s", "density", "position_jitter", "pitch_jitter", "window"
+  ],
+  "properties": {
+    "op": {
+      "type": "string",
+      "enum": ["capture", "trim", "normalise", "reverse", "pitch", "stretch", "slice", "loop", "grain"],
+      "description": "One operation. slice cuts the source. grain writes a pad of duration_s."
+    },
+    "source_ref": {
+      "type": "string",
+      "enum": ["latest", "root", "previous"],
+      "description": "latest is the newest sample. root walks parent_id to the top. previous is the parent of the newest."
+    },
+    "duration_s": { "type": "number", "minimum": 0.05, "maximum": 30 },
+    "start_s": { "type": "number", "minimum": 0, "maximum": 30 },
+    "end_s": { "type": "number", "minimum": 0, "maximum": 30, "description": "0 means the end of the source for trim and is otherwise ignored." },
+    "semitones": { "type": "number", "minimum": -24, "maximum": 24 },
+    "preserve_duration": { "type": "boolean" },
+    "stretch": { "type": "number", "minimum": 0.25, "maximum": 8, "description": "Time stretch. Above 1 makes the sound longer and keeps the pitch." },
+    "slice_mode": { "type": "string", "enum": ["count", "transient", "beats"] },
+    "count": { "type": "number", "minimum": 1, "maximum": 64 },
+    "beats_per_slice": { "type": "number", "minimum": 0.25, "maximum": 16 },
+    "grid_bpm": { "type": "number", "minimum": 40, "maximum": 240 },
+    "loop_start_s": { "type": "number", "minimum": 0, "maximum": 30 },
+    "loop_end_s": { "type": "number", "minimum": 0, "maximum": 30 },
+    "crossfade_s": { "type": "number", "minimum": 0, "maximum": 2 },
+    "grain_size_s": { "type": "number", "minimum": 0.02, "maximum": 0.5 },
+    "density": { "type": "number", "minimum": 1, "maximum": 40, "description": "Grains per second. A slow pad is about 8." },
+    "position_jitter": { "type": "number", "minimum": 0, "maximum": 1 },
+    "pitch_jitter": { "type": "number", "minimum": 0, "maximum": 12, "description": "Semitones of random pitch. A shimmer uses about 4. Zero is flat." },
+    "window": { "type": "string", "enum": ["hann", "triangle", "rect"] }
+  }
+}

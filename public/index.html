@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gumbo's Kitchen</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <p class="mark">Gumbo's Kitchen</p>
+    <h1>Compose</h1>
+    <p>Prompt a composition, or render an FM layer. The model writes a patch. The engine writes the audio.</p>
+  </header>
+
+  <section id="composition">
+    <div class="section-head">
+      <h2>Composition</h2>
+      <p id="comp-meta" class="meta">Loading…</p>
+    </div>
+    <p id="comp-chain" class="meta"></p>
+    <ul id="layers"></ul>
+    <div class="row">
+      <button id="play-mix" type="button" disabled>Play mixdown</button>
+    </div>
+    <form id="comp-form">
+      <label for="comp-prompt">Prompt for this composition</label>
+      <textarea id="comp-prompt" rows="3" maxlength="2000" required>take that brass chord, slice it into 8, and play slices 1 3 5 7 on the off-beats at 90 bpm</textarea>
+      <div class="row">
+        <button type="submit">Run</button>
+        <p class="meta">sampler · sequencer · qwen</p>
+      </div>
+      <p id="comp-error" role="alert"></p>
+    </form>
+  </section>
+
+  <form id="prompt-form">
+    <label for="prompt">Prompt</label>
+    <textarea id="prompt" rows="3" maxlength="2000" required>make a bold brassy trumpet chord for 0.50 seconds</textarea>
+    <div class="row">
+      <button type="submit">Render</button>
+      <p id="form-note">fm-synth · qwen · offline</p>
+    </div>
+    <p id="form-error" role="alert"></p>
+  </form>
+
+  <section>
+    <h2>Jobs</h2>
+    <ol id="jobs"></ol>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Samples</h2>
+      <label class="filter">
+        Filter
+        <input id="filter" type="search" placeholder="trumpet, kick, 808">
+      </label>
+    </div>
+    <ul id="samples"></ul>
+  </section>
+
+  <footer>
+    <audio id="player" controls preload="none"></audio>
+  </footer>
+  <script src="/app.js"></script>
+</body>
+</html>
